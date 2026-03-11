@@ -639,26 +639,6 @@
       box-shadow: 0 0 15px var(--accent-primary);
     }
 
-    #radio-toggle {
-      background: transparent;
-      border: 1px solid white;
-      color: white;
-      padding: 6px 12px;
-      border-radius: 15px;
-      cursor: pointer;
-      font-weight: bold;
-      font-family: 'Outfit';
-      font-size: 11px;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    #radio-toggle:hover {
-      background: white;
-      color: var(--accent-primary);
-    }
   </style>
 </head>
 
@@ -1006,19 +986,17 @@
         <span id="status-text" style="color: white; font-weight: bold;">SISTEMA EN LÍNEA</span>
       </div>
 
-      <!-- Manual Navigation Controls -->
+      <!-- Auto Navigation Status -->
       <div style="display: flex; gap: 20px; align-items: center; z-index: 2;">
-        <button id="btn-prev" class="nav-btn" style="border-color: white; color: white;">❮ ANTERIOR</button>
         <span id="screen-indicator"
           style="font-weight: 800; font-size: 16px; color: white; letter-spacing: 2px;">PANTALLA
           1</span>
-        <button id="btn-next" class="nav-btn" style="border-color: white; color: white;">SIGUIENTE ❯</button>
       </div>
 
       <div style="display: flex; gap: 15px; align-items: center; z-index: 2; margin-left: auto; margin-right: 20px;">
-        <button id="radio-toggle">
-          <span id="radio-icon">▶</span> RADIO
-        </button>
+        <audio id="radio-player" controls preload="none" style="height: 30px; border-radius: 15px; outline: none; opacity: 0.8;">
+          <source src="https://playerservices.streamtheworld.com/api/livestream-redirect/CONCIERTO.mp3" type="audio/mpeg">
+        </audio>
         <div id="last-update" style="color: rgba(255, 255, 255, 0.8);">ÚLTIMA ACTUALIZACIÓN: --:--</div>
       </div>
       <img src="https://drive.google.com/thumbnail?id=1BAKSH0jS6cWIoi4DeckbslVJRlE_Vnpl&sz=w1000" alt="Logo Footer"
@@ -1029,7 +1007,7 @@
   <script>
     // CONFIGURACIÓN
     const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxZpDddlwGfD3fngvHf-0GQsWnPgGwBh6NoBeqW8sCdITJ2ir62SvRuq34eda_QZlna/exec";
-    const ROTATION_TIME = 15000; // 15 segundos entre pantallas
+    const ROTATION_TIME = 15000; // 30 segundos entre pantallas
     const REFRESH_TIME = 60000; // 1 minuto carga de datos
 
     let currentScreenIdx = 0;
@@ -1063,8 +1041,7 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // ROTACIÓN DE PANTALLAS (MANUAL)
-    // const ROTATION_TIME = 15000; // Auto-rotation disabled
+    // ROTACIÓN DE PANTALLAS (AUTOMÁTICA)
 
     // SCREEN TITLES MAP
     const screenTitles = [
@@ -1101,14 +1078,14 @@
       }
     }
 
-    document.getElementById('btn-prev').addEventListener('click', () => showScreen(currentScreenIdx - 1));
-    document.getElementById('btn-next').addEventListener('click', () => showScreen(currentScreenIdx + 1));
-
     // Initialize indicator
     document.getElementById('screen-indicator').innerText = `PANTALLA 1/${screens.length}`;
     document.getElementById('screen-subtitle').innerText = screenTitles[0];
 
-    // setInterval(rotateScreens, ROTATION_TIME); // Disabled
+    // ROTACIÓN AUTOMÁTICA
+    setInterval(() => {
+      showScreen(currentScreenIdx + 1);
+    }, ROTATION_TIME);
 
     // FETCH DATA
     async function fetchData() {
@@ -1975,33 +1952,20 @@
     fetchData();
     setInterval(fetchData, REFRESH_TIME);
 
-    // RADIO LOGIC
-    // Encontramos el link directo de streaming de Concierto
-    // 'https://19043.live.streamtheworld.com/CONCIERTOAAC.aac' u otro formato si falla.
-    // Usamos el player directo de Prisa media / emisora.cl como popup si falla el audio directo, pero intentaremos stream de audio primero.
-    const radioStreamUrl = "https://27163.live.streamtheworld.com/CONCIERTOAAC.aac"; // Flujo AAC que usa emisora.cl
-    const radioAudio = new Audio(radioStreamUrl);
-    radioAudio.volume = 0.5; // Starts at half volume
-    let isRadioPlaying = false;
+    // RADIO LOGIC: Usar el elemento nativo
+    const radioPlayer = document.getElementById('radio-player');
+    radioPlayer.volume = 0.5;
 
-    document.getElementById('radio-toggle').addEventListener('click', function() {
-      if (isRadioPlaying) {
-        radioAudio.pause();
-        isRadioPlaying = false;
-        document.getElementById('radio-icon').innerText = '▶';
-        this.style.background = 'transparent';
-        this.style.color = 'white';
-      } else {
-        radioAudio.play().then(() => {
-          isRadioPlaying = true;
-          document.getElementById('radio-icon').innerText = '⏸';
-          this.style.background = 'white';
-          this.style.color = 'var(--accent-primary)';
-        }).catch(err => {
-          console.error("Audio block: ", err);
-          alert("El navegador bloqueó el audio. Asegúrate de permitir el sonido entrante.");
-        });
-      }
+    // Intentar reconectar automáticamente si la transmisión se corta (si hay algún microcorte de red)
+    radioPlayer.addEventListener('error', function(e) {
+      console.warn("Conexión de radio perdida, reintentando en 5 segundos...");
+      setTimeout(() => {
+        radioPlayer.load();
+        const playPromise = radioPlayer.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => console.log("Reconexión en espera de interacción."));
+        }
+      }, 5000);
     });
 
   </script>
