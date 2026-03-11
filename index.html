@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV Wallboard - Portal CM</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --glass-bg: rgba(255, 255, 255, 0.95);
+      --glass-border: rgba(0, 51, 102, 0.1);
+      --accent-primary: #003366;
+      /* Navy Blue */
+      --accent-secondary: #cc0000;
+      /* Institutional Red */
+      --text-main: #003366;
+      --text-dim: #666666;
+      --status-ok: #28a745;
+      --status-warn: #ffca28;
+      --status-crit: #d32f2f;
+    }
+
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      display: grid;
+      grid-template-rows: 100px 1fr 60px;
+      width: 100%;
+      height: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      gap: 20px;
+    }
+
+    /* Top Bar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 30px;
+      background: var(--accent-primary);
+      color: white;
+      backdrop-filter: blur(10px);
+      border-radius: 0 0 20px 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      position: relative;
+    }
+
+    .header-logo {
+      height: 60px;
+      width: auto;
+      margin-right: 20px;
+      filter: brightness(0) invert(1);
+      /* Makes dark blue logo parts white for visibility */
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .brand h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 0;
+      color: white;
+      line-height: 1.1;
+    }
+
+    .title-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .brand h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      line-height: 1.1;
+    }
+
+    .clock-container {
+      text-align: right;
+    }
+
+    #clock {
+      font-size: 32px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    #date {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Main Display */
+    main {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: repeat(12, 1fr);
+      gap: 20px;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    .screen.active {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    /* Cards */
+    .card {
+      background: #ffffff;
+      border: 1px solid rgba(0, 51, 102, 0.1);
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 25px rgba(0, 51, 102, 0.08);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-left: 4px solid var(--accent-secondary);
+      padding-left: 10px;
+    }
+
+    /* KPI Specifics */
+    .kpi-value {
+      font-size: 48px;
+      font-weight: 800;
+      margin: 10px 0;
+      color: var(--accent-primary);
+    }
+
+    .kpi-trend {
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .trend-up {
+      color: var(--status-ok);
+    }
+
+    .trend-down {
+      color: var(--status-crit);
+    }
+
+    /* Screens Layouts */
+    .grid-full {
+      grid-area: 1 / 1 / 13 / 13;
+    }
+
+    .grid-left {
+      grid-area: 1 / 1 / 13 / 5;
+    }
+
+    .grid-right {
+      grid-area: 1 / 5 / 13 / 13;
+    }
+
+    .grid-top {
+      grid-area: 1 / 1 / 5 / 13;
+    }
+
+    .grid-bottom {
+      grid-area: 5 / 1 / 13 / 13;
+    }
+
+    .grid-center {
+      grid-area: 1 / 4 / 13 / 10;
+    }
+
+    /* Staffing Specifics */
+    .staff-card {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .staff-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 10px;
+    }
+
+    .staff-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      padding: 8px 0;
+    }
+
+    .ausencia {
+      color: var(--status-crit);
+      font-weight: 600;
+    }
+
+    .pax-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    /* Large area chart container */
+    .chart-container {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .dotgen-full-card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Airport Traffic: Background Airplanes */
+    .bg-airplane {
+      position: fixed;
+      width: 120px;
+      height: auto;
+      fill: rgba(0, 51, 102, 0.03);
+      /* Subtle silhouette */
+      z-index: -1;
+      /* Behind cards */
+      pointer-events: none;
+      animation: flyBG 60s linear infinite;
+    }
+
+    @keyframes flyBG {
+      from {
+        left: -150px;
+      }
+
+      to {
+        left: 110%;
+      }
+    }
+
+    /* SkyVent Specifics */
+    .sky-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      color: var(--text-main);
+    }
+
+    .sky-table th {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 2px solid var(--accent-secondary);
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .sky-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .sky-table tr:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Goal Tracker */
+    .goal-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .goal-circle {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      border: 6px solid var(--accent-primary);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
+      background: rgba(0, 242, 255, 0.1);
+    }
+
+    #goal-pct {
+      font-size: 36px;
+      font-weight: 800;
+    }
+
+    #goal-label {
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 2px;
+      opacity: 0.7;
+    }
+
+    .goal-message {
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      padding: 8px 15px;
+      border-radius: 10px;
+      background: var(--bg-color);
+      color: var(--accent-primary);
+    }
+
+    .mini-sky-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+
+    .mini-sky-table th {
+      text-align: left;
+      color: var(--text-dim);
+      padding: 5px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .mini-sky-table td {
+      padding: 5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .sky-kpi-card {
+      padding: 10px !important;
+      margin-bottom: 5px !important;
+    }
+
+    /* Summary Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 20px;
+      height: 100%;
+    }
+
+    .summary-card {
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      border-radius: 30px;
+      transition: transform 0.3s ease;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .summary-area {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .summary-pct {
+      font-size: 48px;
+      /* Reduced from 64px to prevent overflow */
+      font-weight: 800;
+      margin: 5px 0;
+    }
+
+    .summary-info {
+      font-size: 16px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .summary-total {
+      grid-column: span 3;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid white;
+    }
+
+    .grid-center {
+      grid-area: 1 / 4 / 13 / 10;
+    }
+
+    /* Staffing Specifics */
+    .staff-card {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .staff-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 10px;
+    }
+
+    .staff-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      padding: 8px 0;
+    }
+
+    .ausencia {
+      color: var(--status-crit);
+      font-weight: 600;
+    }
+
+    .pax-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    /* Training Stats */
+    .training-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .training-item:last-child {
+      border-bottom: none;
+    }
+
+    .progress-bar {
+      width: 100px;
+      height: 8px;
+      background: rgba(0, 51, 102, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+    }
+
+    /* Footer */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 30px;
+      background: var(--accent-secondary);
+      color: white;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer-logo {
+      height: 40px;
+      width: auto;
+      z-index: 2;
+    }
+
+    /* Airplane Animation */
+    .airplane-container {
+      position: absolute;
+      top: 50%;
+      left: -100px;
+      transform: translateY(-50%);
+      z-index: 1;
+      animation: flyAcross 15s linear infinite;
+      pointer-events: none;
+      opacity: 0.2;
+    }
+
+    @keyframes flyAcross {
+      0% {
+        left: -100px;
+        transform: translateY(-50%) scaleX(1);
+      }
+
+      45% {
+        left: 100%;
+        transform: translateY(-50%) scaleX(1);
+      }
+
+      50% {
+        left: 100%;
+        transform: translateY(-50%) scaleX(-1);
+      }
+
+      95% {
+        left: -100px;
+        transform: translateY(-50%) scaleX(-1);
+      }
+
+      100% {
+        left: -100px;
+        transform: translateY(-50%) scaleX(1);
+      }
+    }
+
+    .airplane-svg {
+      width: 50px;
+      height: auto;
+      fill: #003366;
+      /* Navy Blue */
+      transform: rotate(90deg);
+      /* Horizontal */
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--status-ok);
+      box-shadow: 0 0 10px var(--status-ok);
+    }
+
+    .dot.pulse {
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from {
+        opacity: 0.5;
+        transform: scale(0.8);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1.2);
+      }
+    }
+
+    /* Animations */
+    .fade-in {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Chart Tooltip overrides if needed */
+
+    .nav-btn {
+      background: transparent;
+      border: 1px solid var(--accent-primary);
+      color: var(--accent-primary);
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .nav-btn:hover {
+      background: var(--accent-primary);
+      color: #000;
+      box-shadow: 0 0 15px var(--accent-primary);
+    }
+
+    #radio-toggle {
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: 'Outfit';
+      font-size: 11px;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #radio-toggle:hover {
+      background: white;
+      color: var(--accent-primary);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Background Airplanes -->
+    <svg class="bg-airplane" style="top: 15%; animation-delay: 0s;" viewBox="0 0 512 512">
+      <path
+        d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z"
+        transform="rotate(90 256 256)" />
+    </svg>
+    <svg class="bg-airplane" style="top: 40%; animation-delay: -15s;" viewBox="0 0 512 512">
+      <path
+        d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z"
+        transform="rotate(90 256 256)" />
+    </svg>
+    <svg class="bg-airplane" style="top: 70%; animation-delay: -30s;" viewBox="0 0 512 512">
+      <path
+        d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z"
+        transform="rotate(90 256 256)" />
+    </svg>
+
+    <header>
+      <div class="brand">
+        <img src="https://drive.google.com/thumbnail?id=1UMWAaUV3KLd51IFPEqloKNQrfhM18GaD&sz=w1000" alt="Logo"
+          class="header-logo">
+        <div class="title-container">
+          <h1>PORTAL CM DASHBOARD</h1>
+          <h2 id="screen-subtitle">VISTA GENERAL</h2>
+        </div>
+      </div>
+      <div class="clock-container">
+        <p id="clock">00:00:00</p>
+        <p id="date">CARGANDO...</p>
+      </div>
+    </header>
+
+    <main id="display">
+      <!-- PANTALLA 1: CAPACITACIÓN -->
+      <div id="screen-training" class="screen active">
+
+        <div class="card grid-left" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header">
+            <span class="card-title">Resumen por Área</span>
+          </div>
+          <div id="training-list" style="overflow-y: auto;">
+            <!-- JS Dynamic List -->
+          </div>
+        </div>
+        <div class="card grid-right" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header">
+            <span class="card-title">Vigencia General</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="trainingChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA 2: QR & EVALUACIONES -->
+      <div id="screen-qr" class="screen">
+        <div class="card grid-top"
+          style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; border: none; background: none; backdrop-filter: none; padding: 0; top: 80px; height: calc(40% - 80px);">
+          <div class="card">
+            <span class="card-title">Evaluaciones Totales</span>
+            <div class="kpi-value" id="qr-total-all">0</div>
+          </div>
+          <div class="card">
+            <span class="card-title">Realizadas Mes</span>
+            <div class="kpi-value" id="qr-total-month">0</div>
+          </div>
+          <div class="card">
+            <span class="card-title">Varianza Mes</span>
+            <div class="kpi-value trend-up" id="qr-variance">0</div>
+          </div>
+          <div class="card" style="align-items: center; justify-content: center; text-align: center;">
+            <span class="card-title">Satisfacción General</span>
+            <div class="kpi-value" id="qr-avg-score" style="font-size: 32px; margin-bottom: 5px;">0.0 / 5</div>
+            <div id="qr-stars" style="color: #ffca28; font-size: 24px; letter-spacing: 2px;"></div>
+          </div>
+        </div>
+        <div class="card grid-bottom" style="height: calc(60% - 20px);">
+          <div class="card-header">
+            <span class="card-title">Satisfacción Promedio</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="qrChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA 3: FLUJO SEMANAL -->
+      <div id="screen-weekly" class="screen">
+        <div class="card grid-full" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header">
+            <span class="card-title">Evolución Semanal</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="weeklyChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA 4: REPORTE PMR POR HORA (NUEVA) -->
+      <div id="screen-pmr-hourly" class="screen">
+        <div class="card grid-full" style="top: 80px; height: calc(100% - 100px); display: flex; flex-direction: column;">
+          <div class="card-header" style="justify-content: space-between; align-items: center; border-bottom: 2px solid var(--glass-border); padding-bottom: 15px;">
+            <div>
+              <span class="card-title" style="font-size: 18px;">PASAJEROS PMR ESPERADOS AHORA</span>
+              <div style="font-size: 14px; color: var(--text-dim); margin-top: 5px;" id="pmr-hourly-datetime">Fecha: -- | Total Vuelos: --</div>
+            </div>
+            <div id="pmr-hourly-alert-badge" style="display: none; background: var(--status-crit); color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; animation: pulse 2s infinite;">
+              ALTO VOLUMEN DE PASAJEROS
+            </div>
+          </div>
+          <div id="pmr-hourly-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 30px; transition: background 0.5s ease; border-radius: 20px; padding: 20px;">
+            <div style="font-size: 24px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px;">
+              Rango Horario Actual
+            </div>
+            <div id="pmr-hourly-time" style="font-size: 64px; font-weight: 800; color: var(--accent-primary); line-height: 1;">
+              --:--
+            </div>
+            <div style="display: flex; gap: 50px; justify-content: center; align-items: baseline;">
+              <div style="text-align: center;">
+                <div id="pmr-hourly-pax" style="font-size: 80px; font-weight: 800; color: var(--status-ok); line-height: 1;">0</div>
+                <div style="font-size: 16px; font-weight: bold; color: var(--text-dim); text-transform: uppercase;">Pasajeros Esperados</div>
+              </div>
+            </div>
+            <div id="pmr-hourly-details" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 200px; overflow-y: auto; width: 80%;">
+              <!-- JS Dynamic -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA 5: DETALLE PMR (ANTES 4) -->
+      <div id="screen-pmr-detail" class="screen">
+        <div class="card grid-left" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header">
+            <span class="card-title">Resumen Semanal</span>
+          </div>
+          <div class="kpi-group"
+            style="display:flex; flex-direction:column; gap:20px; justify-content:center; height:100%">
+            <div class="card">
+              <span class="card-title">PAX Esperados</span>
+              <div class="kpi-value" id="pax-esperados">0</div>
+            </div>
+            <div class="card">
+              <span class="card-title">Servicios Realizados</span>
+              <div class="kpi-value" id="servicios-realizados">0</div>
+            </div>
+            <div class="card">
+              <span class="card-title">Operatividad Global</span>
+              <div class="kpi-value" id="operatividad-total" style="color:var(--status-ok)">0%</div>
+            </div>
+          </div>
+        </div>
+        <div class="card grid-right" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header">
+            <span class="card-title">Servicios Realizados (Por Categoría)</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="pmrCategoriesChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- (LA PANTALLA DE DOTACION FUE ELIMINADA COMO SE SOLICITO) -->
+
+      <!-- DYNAMIC SCREENS CONTAINER -->
+      <div id="dynamic-screens-container"></div>
+
+      <!-- PANTALLA 6: SUMMARY DOTACIÓN -->
+      <div id="screen-dotgen-summary" class="screen">
+        <div class="card grid-full" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header">
+            <span class="card-title">Resumen de Cumplimiento (Operaciones)</span>
+          </div>
+          <div id="summary-grid-container" class="summary-grid">
+            <!-- JS Dynamic -->
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA SKYVENT 1: VUELOS & COBROS -->
+      <div id="screen-sky-vuelos" class="screen">
+        <div class="card grid-left" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header"><span class="card-title">Registro Detallado</span></div>
+          <div style="overflow-y: auto; height: 100%;">
+            <table class="sky-table" id="sky-vuelos-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Vuelos</th>
+                  <th>Descub.</th>
+                  <th>Cobros</th>
+                  <th>Excep.</th>
+                  <th>Rind.</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid-right"
+          style="top: 80px; height: calc(100% - 100px); display: flex; flex-direction: column; gap: 20px;">
+          <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header"><span class="card-title">Cobros vs Excepciones</span></div>
+            <div class="chart-container">
+              <canvas id="skyVuelosChart"></canvas>
+            </div>
+          </div>
+          <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header"><span class="card-title">Volumen de Vuelos</span></div>
+            <div class="chart-container">
+              <canvas id="skyVuelosVolChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA SKYVENT 2: MONTOS & METAS -->
+      <div id="screen-sky-montos" class="screen">
+        <!-- Columna Izquierda: Cumplimiento Semanal -->
+        <div class="card grid-left"
+          style="top: 80px; height: calc(100% - 100px); display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div class="card-header"><span class="card-title">Meta vs Realidad (Semanal)</span></div>
+            <div class="goal-container">
+              <div class="goal-circle" id="goal-circle">
+                <span id="goal-pct">0%</span>
+                <small id="goal-label">Cumplimiento</small>
+              </div>
+              <div class="goal-message" id="goal-message">Calculando...</div>
+            </div>
+            <div class="kpi-group" style="width:100%; margin-top:10px;">
+              <div class="card sky-kpi-card">
+                <span class="card-title" style="font-size:12px">Semana Actual</span>
+                <div class="kpi-value" id="sky-actual" style="font-size:24px;">$0</div>
+              </div>
+              <div class="card sky-kpi-card">
+                <span class="card-title" style="font-size:12px">Meta (Semana Anterior)</span>
+                <div class="kpi-value meta-highlight" id="sky-anterior" style="font-size:24px; color:var(--text-dim);">
+                  $0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Cumplimiento Mensual e Informativo -->
+        <div class="grid-right"
+          style="top: 80px; height: calc(100% - 100px); display: flex; flex-direction: column; gap: 20px;">
+
+          <!-- Superior: Cumplimiento Mensual (NUEVO) -->
+          <div class="card" style="flex: 0 0 auto;">
+            <div class="card-header"><span class="card-title">Desempeño Mensual ($Q48 / $Q49)</span></div>
+            <div style="display: flex; gap: 20px; align-items: center; justify-content: space-around; padding: 15px 0;">
+              <div style="text-align: center;">
+                <div
+                  style="color: var(--text-dim); font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">
+                  Mes Actual</div>
+                <div id="sky-mes-actual" style="font-size: 28px; font-weight: 800; color: var(--accent-primary);">$0
+                </div>
+              </div>
+              <div
+                style="text-align: center; background: rgba(255,255,255,0.05); padding: 10px 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                <div id="sky-mes-variacion" style="font-size: 24px; font-weight: 800; color: var(--status-ok);">0%</div>
+                <div style="font-size: 10px; color: var(--text-dim); font-weight: bold;">CUMPLIMIENTO</div>
+              </div>
+              <div style="text-align: center;">
+                <div
+                  style="color: var(--text-dim); font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">
+                  Mes Anterior</div>
+                <div id="sky-mes-anterior" style="font-size: 28px; font-weight: 800; color: var(--text-dim);">$0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inferior: Desglose y Resumen -->
+          <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header"><span class="card-title">Desglose Operativo</span></div>
+            <div style="flex: 1; display: flex; gap: 15px; min-height: 0;">
+              <!-- Doughnut -->
+              <div style="flex: 1; position: relative; height: 100%;">
+                <canvas id="skyMontosChart"></canvas>
+              </div>
+              <!-- Tabla Resumen -->
+              <div style="flex: 1; overflow-y: auto;">
+                <div
+                  style="font-size: 11px; color: var(--text-dim); font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">
+                  Resumen por Semana</div>
+                <table class="mini-sky-table" id="sky-monthly-table">
+                  <thead>
+                    <tr>
+                      <th>Semana</th>
+                      <th>Monto Total</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- PANTALLA MOTORIZADOS: ESTADO Y ALERTAS -->
+      <div id="screen-motorizados" class="screen">
+        <div class="card grid-left" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header"><span class="card-title">Resumen Operativo por Cuerpo</span></div>
+          <div id="motorizados-summary" style="overflow-y: auto; display: flex; flex-direction: column; gap: 15px;">
+            <!-- JS Dynamic -->
+          </div>
+        </div>
+        <div class="card grid-right" style="top: 80px; height: calc(100% - 100px);">
+          <div class="card-header"><span class="card-title">Alertas de Documentación (Próximos 30 días)</span></div>
+          <div style="overflow-y: auto; height: 100%;">
+            <table class="sky-table" id="motorizados-alerts-table">
+              <thead>
+                <tr>
+                  <th>Móvil</th>
+                  <th>Documento</th>
+                  <th>Fecha Vencimiento</th>
+                  <th>Días Restantes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- JS Dynamic -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="airplane-container">
+        <svg class="airplane-svg" viewBox="0 0 512 512">
+          <path
+            d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z" />
+        </svg>
+      </div>
+      <div class="status-badge" style="z-index: 2;">
+        <div class="dot" style="background: white; box-shadow: 0 0 10px white;"></div>
+        <span id="status-text" style="color: white; font-weight: bold;">SISTEMA EN LÍNEA</span>
+      </div>
+
+      <!-- Manual Navigation Controls -->
+      <div style="display: flex; gap: 20px; align-items: center; z-index: 2;">
+        <button id="btn-prev" class="nav-btn" style="border-color: white; color: white;">❮ ANTERIOR</button>
+        <span id="screen-indicator"
+          style="font-weight: 800; font-size: 16px; color: white; letter-spacing: 2px;">PANTALLA
+          1</span>
+        <button id="btn-next" class="nav-btn" style="border-color: white; color: white;">SIGUIENTE ❯</button>
+      </div>
+
+      <div style="display: flex; gap: 15px; align-items: center; z-index: 2; margin-left: auto; margin-right: 20px;">
+        <button id="radio-toggle">
+          <span id="radio-icon">▶</span> RADIO
+        </button>
+        <div id="last-update" style="color: rgba(255, 255, 255, 0.8);">ÚLTIMA ACTUALIZACIÓN: --:--</div>
+      </div>
+      <img src="https://drive.google.com/thumbnail?id=1BAKSH0jS6cWIoi4DeckbslVJRlE_Vnpl&sz=w1000" alt="Logo Footer"
+        class="footer-logo">
+    </footer>
+  </div>
+
+  <script>
+    // CONFIGURACIÓN
+    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxZpDddlwGfD3fngvHf-0GQsWnPgGwBh6NoBeqW8sCdITJ2ir62SvRuq34eda_QZlna/exec";
+    const ROTATION_TIME = 15000; // 15 segundos entre pantallas
+    const REFRESH_TIME = 60000; // 1 minuto carga de datos
+
+    let currentScreenIdx = 0;
+    const screens = ['screen-training', 'screen-qr', 'screen-weekly', 'screen-pmr-hourly', 'screen-pmr-detail', 'screen-dotgen-summary', 'screen-sky-vuelos', 'screen-sky-montos', 'screen-motorizados'];
+    let data = null;
+    let charts = {};
+
+    // CHART.JS DEFAULT CONFIG
+    Chart.register(ChartDataLabels);
+    Chart.defaults.set('plugins.datalabels', {
+      color: '#003366',
+      anchor: 'end',
+      align: 'top',
+      offset: 4,
+      font: { weight: 'bold', size: 12 },
+      formatter: (value) => {
+        const num = parseFloat(value);
+        if (isNaN(num)) return value;
+        if (num > 0 && num < 1) return (num * 100).toFixed(1) + '%';
+        return num.toLocaleString('es-CL', { maximumFractionDigits: 1 });
+      }
+    });
+
+    // RELOJ
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').innerText = now.toLocaleTimeString('es-CL');
+      const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      document.getElementById('date').innerText = now.toLocaleDateString('es-CL', options);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ROTACIÓN DE PANTALLAS (MANUAL)
+    // const ROTATION_TIME = 15000; // Auto-rotation disabled
+
+    // SCREEN TITLES MAP
+    const screenTitles = [
+      "Área de Capacitacion",
+      "Movilizacion - Evaluaciones QR",
+      "Vuelos y Pasajeros esperados - PMR",
+      "PASAJEROS PMR ESPERADOS AHORA",
+      "Operatividad PMR",
+      "Cumplimiento Dotacion General",
+      "Cobro en Gate - Vuelos y Cobros",
+      "Sky Ventas - Montos",
+      "Movilización - Estado Móviles"
+    ];
+
+    function showScreen(index) {
+      // Hide current
+      document.getElementById(screens[currentScreenIdx]).classList.remove('active');
+
+      // Update index
+      currentScreenIdx = index;
+      if (currentScreenIdx < 0) currentScreenIdx = screens.length - 1;
+      if (currentScreenIdx >= screens.length) currentScreenIdx = 0;
+
+      // Show new
+      document.getElementById(screens[currentScreenIdx]).classList.add('active');
+
+      // Update Indicator & Subtitle
+      document.getElementById('screen-indicator').innerText = `PANTALLA ${currentScreenIdx + 1}/${screens.length}`;
+      document.getElementById('screen-subtitle').innerText = screenTitles[currentScreenIdx] || "VISTA GENERAL";
+
+      // Re-render chart animations if needed
+      if (charts[screens[currentScreenIdx]]) {
+        // charts[screens[currentScreenIdx]].update();
+      }
+    }
+
+    document.getElementById('btn-prev').addEventListener('click', () => showScreen(currentScreenIdx - 1));
+    document.getElementById('btn-next').addEventListener('click', () => showScreen(currentScreenIdx + 1));
+
+    // Initialize indicator
+    document.getElementById('screen-indicator').innerText = `PANTALLA 1/${screens.length}`;
+    document.getElementById('screen-subtitle').innerText = screenTitles[0];
+
+    // setInterval(rotateScreens, ROTATION_TIME); // Disabled
+
+    // FETCH DATA
+    async function fetchData() {
+      try {
+        // Para pruebas, si la URL no es válida, usamos mock data
+        if (WEBAPP_URL.includes("v_v_v")) {
+          data = getMockData();
+        } else {
+          console.log("Fetching data from:", WEBAPP_URL);
+          const response = await fetch(WEBAPP_URL + "?action=data");
+
+          if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+          }
+
+          const text = await response.text();
+          // Debug: Check if we got HTML instead of JSON (common GAS error)
+          if (text.trim().startsWith("<")) {
+            console.error("Received HTML instead of JSON:", text);
+            throw new Error("Server returned HTML (Script Error?): " + text.substring(0, 50).replace(/<[^>]*>?/gm, ''));
+          }
+
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.error("JSON Parse Error:", e, "Raw Text:", text);
+            throw new Error("Invalid JSON response: " + text.substring(0, 30) + "...");
+          }
+        }
+
+        renderData();
+        document.getElementById('last-update').innerText = `ÚLTIMA ACTUALIZACIÓN: ${new Date().toLocaleTimeString('es-CL')}`;
+        document.querySelector('.dot').style.background = 'var(--status-ok)';
+        document.getElementById('status-text').innerText = 'SISTEMA EN LÍNEA';
+      } catch (err) {
+        console.error("Fetch/Render Error:", err);
+        document.querySelector('.dot').style.background = 'var(--status-crit)';
+        // Show detailed error on screen
+        const errorMsg = err.message || err.toString();
+        document.getElementById('status-text').innerText = 'ERROR: ' + errorMsg;
+        // Also show in a visible alert box if needed for immediate visibility
+        document.getElementById('date').innerText = "ERROR DE SISTEMA";
+      }
+    }
+
+    // RENDER
+    function renderData() {
+      if (!data) return;
+
+      // 1. Training Screen
+      const list = document.getElementById('training-list');
+      list.innerHTML = '';
+      data.training.forEach(item => {
+        const pct = (parseFloat(item.cumplimiento) * 100).toFixed(0);
+        const div = document.createElement('div');
+        div.className = 'training-item fade-in';
+        div.innerHTML = `
+                    <div style="flex:1">
+                        <div style="font-size:14px; font-weight:600">${item.area}</div>
+                        <div style="font-size:12px; color:var(--text-dim)">${item.vigentes} vig. / ${item.noVigentes} no vig.</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:16px; font-weight:800; color:${pct >= 80 ? 'var(--status-ok)' : pct >= 50 ? 'var(--status-warn)' : 'var(--status-crit)'}">${pct}%</div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%; background:${pct >= 80 ? 'var(--status-ok)' : 'var(--accent-primary)'}"></div></div>
+                    </div>
+                `;
+        list.appendChild(div);
+      });
+
+      renderTrainingChart();
+
+      // 2. QR Screen
+      document.getElementById('qr-total-all').innerText = data.qr.totals.total;
+      document.getElementById('qr-total-month').innerText = data.qr.totals.month;
+      document.getElementById('qr-variance').innerText = data.qr.totals.variance;
+
+      const avgScore = parseFloat(data.qr.totals.avgScore) || 0;
+      document.getElementById('qr-avg-score').innerText = `${avgScore.toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / 5`;
+      document.getElementById('qr-stars').innerHTML = getStarRating(avgScore);
+
+      renderQrChart();
+
+      // 3. Weekly Screen
+      renderWeeklyChart();
+
+      // 4. PMR Hourly Screen
+      if (data.pmrDetailed && data.pmrDetailed.hourly) {
+        renderPmrHourly();
+      }
+
+      // 5. PMR Detail Screen
+      if (data.pmrDetailed) {
+        document.getElementById('pax-esperados').innerText = data.pmrDetailed.summary.paxEsperados;
+        document.getElementById('servicios-realizados').innerText = data.pmrDetailed.summary.serviciosRealizados;
+        const opPct = (parseFloat(data.pmrDetailed.summary.operatividad) * 100).toFixed(1);
+        document.getElementById('operatividad-total').innerText = opPct + '%';
+        document.getElementById('operatividad-total').style.color = opPct >= 95 ? 'var(--status-ok)' : opPct >= 85 ? 'var(--status-warn)' : 'var(--status-crit)';
+        renderPmrCategoriesChart();
+      }
+
+      // 6. Dotgen Summary
+      if (data.dotgenSummary) {
+        renderDotgenSummary();
+      }
+
+      // 7. SkyVent Screens
+      if (data.sky) {
+        renderSkyVuelos();
+        renderSkyMontos();
+      }
+
+      // 9. Motorizados
+      if (data.motorizados) {
+        renderMotorizados();
+      }
+    }
+
+    function createStaffRow(item) {
+      const div = document.createElement('div');
+      div.className = 'staff-row fade-in';
+      div.innerHTML = `<span>${item.cargo}</span> <span>${item.esperadaActual} <span class="ausencia" style="display:${item.ausencias > 0 ? 'inline' : 'none'}">(${item.ausencias})</span></span>`;
+      return div;
+    }
+
+    function getStarRating(score) {
+      let html = '';
+      for (let i = 1; i <= 5; i++) {
+        if (score >= i) {
+          html += '★';
+        } else if (score >= i - 0.5) {
+          html += '⯪'; // Half star symbol
+        } else {
+          html += '☆';
+        }
+      }
+      return html;
+    }
+
+    function renderGauge(elementId, totalStr, ausencias) {
+      // Fix: Ensure totalStr is a string before splitting
+      const strVal = String(totalStr);
+
+      // Parse "Expected/Actual" -> "25/22"
+      const parts = strVal.split('/');
+      let pct = 0;
+
+      if (parts.length === 2) {
+        const expected = parseFloat(parts[0]);
+        if (expected > 0) {
+          const actual = expected - parseFloat(ausencias);
+          pct = (actual / expected) * 100;
+        }
+      } else if (!isNaN(parseFloat(strVal))) {
+        // Fallback if just a number is provided
+        pct = 0;
+      }
+
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.innerText = pct.toFixed(0) + '%';
+
+        // Color scale
+        if (pct >= 95) el.style.color = 'var(--status-ok)';
+        else if (pct >= 80) el.style.color = 'var(--status-warn)';
+        else el.style.color = 'var(--status-crit)';
+      }
+    }
+
+    function renderDotgenSummary() {
+      const container = document.getElementById('summary-grid-container');
+      container.innerHTML = '';
+
+      data.dotgenSummary.forEach((item, idx) => {
+        const isTotal = item.area.toLowerCase().includes('operaciones');
+        const pct = parseFloat(item.pct) * 100;
+        const color = getLerpColor(pct);
+
+        const card = document.createElement('div');
+        card.className = `summary-card fade-in ${isTotal ? 'summary-total' : ''}`;
+        card.style.background = `linear-gradient(135deg, ${color} 0%, rgba(255,255,255,0.8) 100%)`;
+        card.style.border = `2px solid ${color}`;
+        card.style.color = '#003366';
+
+        card.innerHTML = `
+          <div class="summary-area">${item.area}</div>
+          <div class="summary-pct">${pct.toFixed(0)}%</div>
+          <div class="summary-info">REAL: ${item.actual} | ÓPTIMO: ${item.optima}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function getLerpColor(pct) {
+      if (pct > 100) return '#ff8800'; // Naranjo inmediato > 100%
+
+      // 0% (Rojo: 255, 68, 68) -> 50% (Amarillo: 255, 204, 0) -> 100% (Verde: 0, 255, 136)
+      let r, g, b;
+      if (pct <= 50) {
+        const ratio = pct / 50;
+        r = 255;
+        g = Math.round(68 + (204 - 68) * ratio);
+        b = Math.round(68 + (0 - 68) * ratio);
+      } else {
+        const ratio = (pct - 50) / 50;
+        r = Math.round(255 + (0 - 255) * ratio);
+        g = Math.round(204 + (255 - 204) * ratio);
+        b = Math.round(0 + (136 - 0) * ratio);
+      }
+      return `rgb(${r},${g},${b})`;
+    }
+
+
+    function renderSkyVuelos() {
+      const results = [...data.sky.vuelos];
+
+      // 1. Sort daily data chronologically (spreadsheet logic: N8 to N21)
+      // Since it's sorted by weeks N8-N14 (Actual) and N15-N21 (Anterior)
+      // Let's ensure the array is sorted by actual date for the chart
+      results.sort((a, b) => {
+        const da = a.fecha.split('/').reverse().join('');
+        const db = b.fecha.split('/').reverse().join('');
+        return da.localeCompare(db);
+      });
+
+      // 2. Aggregate into "Semana Anterior" and "Semana Actual"
+      // FIXED: Use specific summary cells from backend instead of aggregating daily data
+      const weeks = {
+        'Semana Actual': data.sky.weekly.actual,
+        'Semana Anterior': data.sky.weekly.anterior
+      };
+
+      // 3. Update Table
+      const tbody = document.getElementById('sky-vuelos-table').getElementsByTagName('tbody')[0];
+      tbody.innerHTML = '';
+
+      ['Semana Anterior', 'Semana Actual'].forEach(label => {
+        const row = weeks[label];
+        const tr = document.createElement('tr');
+        tr.className = 'fade-in';
+        const pct = row.vuelos > 0 ? ((row.cobros / row.vuelos) * 100).toFixed(0) : 0;
+
+        tr.innerHTML = `
+          <td>${label}</td>
+          <td style="font-weight:bold">${row.vuelos || 0}</td>
+          <td style="color:${row.descubiertos > 0 ? 'var(--status-crit)' : 'var(--text-main)'}">${row.descubiertos || 0}</td>
+          <td style="font-weight:bold; color:var(--accent-primary)">${row.cobros || 0}</td>
+          <td style="color:var(--status-warn)">${row.excepciones || 0}</td>
+          <td style="color:var(--status-ok)">${pct}%</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 4. Update Charts (Sorted chronologically - last 14 days)
+      const chartPoints = results.slice(-14);
+
+      // Chart 1: Cobros vs Excepciones
+      const ctx1 = document.getElementById('skyVuelosChart').getContext('2d');
+      if (charts['skyVuelosChart']) charts['skyVuelosChart'].destroy();
+
+      charts['skyVuelosChart'] = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: chartPoints.map(d => d.fecha),
+          datasets: [
+            {
+              label: 'Cobros Realizados',
+              data: chartPoints.map(d => d.cobros),
+              backgroundColor: 'rgba(0, 51, 102, 0.7)',
+              borderColor: '#003366',
+              borderWidth: 1
+            },
+            {
+              label: 'Excepciones',
+              data: chartPoints.map(d => d.excepciones),
+              backgroundColor: 'rgba(204, 0, 0, 0.7)',
+              borderColor: '#cc0000',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 20 } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: 'var(--accent-primary)', font: { size: 10 } } },
+            y: { beginAtZero: true, grace: '25%', ticks: { color: 'var(--text-dim)', font: { size: 10 } } }
+          },
+          plugins: {
+            legend: { position: 'top', labels: { color: 'var(--accent-primary)', font: { size: 11 } } }
+          }
+        }
+      });
+
+      // Chart 2: Volumen de Vuelos (Vuelos vs Descubiertos)
+      const ctx2 = document.getElementById('skyVuelosVolChart').getContext('2d');
+      if (charts['skyVuelosVolChart']) charts['skyVuelosVolChart'].destroy();
+
+      charts['skyVuelosVolChart'] = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: chartPoints.map(d => d.fecha),
+          datasets: [
+            {
+              label: 'Total Vuelos',
+              data: chartPoints.map(d => d.vuelos),
+              backgroundColor: 'rgba(0, 153, 255, 0.7)',
+              borderColor: '#006699',
+              borderWidth: 1
+            },
+            {
+              label: 'Vuelos Descubiertos',
+              data: chartPoints.map(d => d.descubiertos),
+              backgroundColor: 'rgba(255, 153, 0, 0.7)',
+              borderColor: '#cc6600',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 20 } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: 'var(--accent-primary)', font: { size: 10 } } },
+            y: { beginAtZero: true, grace: '25%', ticks: { color: 'var(--text-dim)', font: { size: 10 } } }
+          },
+          plugins: {
+            legend: { position: 'top', labels: { color: 'var(--accent-primary)', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+
+    function renderSkyMontos() {
+      const sky = data.sky;
+      if (!sky || !sky.summary) return;
+
+      // 1. Weekly Performance (Left Panel)
+      const actual = sky.summary.actual || 0;
+      const anterior = sky.summary.anterior || 0;
+      const variacion = sky.summary.variacion || 0;
+
+      document.getElementById('sky-actual').innerText = '$' + actual.toLocaleString('es-CL');
+      const elAnterior = document.getElementById('sky-anterior');
+      elAnterior.innerText = '$' + anterior.toLocaleString('es-CL');
+
+      if (actual >= anterior) {
+        elAnterior.style.color = 'var(--status-ok)';
+        elAnterior.style.textShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+      } else {
+        elAnterior.style.color = 'var(--text-dim)';
+        elAnterior.style.textShadow = 'none';
+      }
+
+      const pctValue = (parseFloat(variacion) * 100);
+      document.getElementById('goal-pct').innerText = pctValue.toFixed(0) + '%';
+      const circle = document.getElementById('goal-circle');
+      const msg = document.getElementById('goal-message');
+
+      if (pctValue >= 100) {
+        circle.style.borderColor = 'var(--status-ok)';
+        circle.style.background = 'rgba(0, 255, 136, 0.1)';
+        msg.innerText = `¡Meta Semanal Superada!`;
+        msg.style.color = 'var(--status-ok)';
+      } else {
+        circle.style.borderColor = 'var(--accent-primary)';
+        circle.style.background = 'rgba(0, 242, 255, 0.1)';
+        msg.innerText = `Cumplimiento Semanal: ${pctValue.toFixed(0)}%`;
+        msg.style.color = 'var(--accent-primary)';
+      }
+
+      // 2. Monthly Performance (Right Top Panel) - New data Q48/Q49
+      const mesActual = sky.summary.mesActual || 0;
+      const mesAnterior = sky.summary.mesAnterior || 0;
+      const mesVariacion = mesAnterior > 0 ? (mesActual / mesAnterior) * 100 : 0;
+
+      document.getElementById('sky-mes-actual').innerText = '$' + mesActual.toLocaleString('es-CL');
+      document.getElementById('sky-mes-anterior').innerText = '$' + mesAnterior.toLocaleString('es-CL');
+      const elMesVar = document.getElementById('sky-mes-variacion');
+      elMesVar.innerText = mesVariacion.toFixed(0) + '%';
+      elMesVar.style.color = mesActual >= mesAnterior ? 'var(--status-ok)' : 'var(--status-crit)';
+
+      // 3. Operational Breakdown (Right Bottom Panel)
+      // Doughnut Chart
+      const ctx = document.getElementById('skyMontosChart').getContext('2d');
+      if (charts['skyMontosChart']) charts['skyMontosChart'].destroy();
+
+      const currentWeek = sky.montos.slice(-7);
+      const aggregates = {
+        Efectivo: currentWeek.reduce((acc, d) => acc + (parseFloat(d.efectivo) || 0), 0),
+        Crédito: currentWeek.reduce((acc, d) => acc + (parseFloat(d.credito) || 0), 0),
+        'Dólares (USD)': currentWeek.reduce((acc, d) => acc + (parseFloat(d.usd) || 0), 0)
+      };
+
+      charts['skyMontosChart'] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(aggregates),
+          datasets: [{
+            data: Object.values(aggregates),
+            backgroundColor: ['#00f2ff', '#7000ff', '#ffcc00'],
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: 'var(--accent-primary)',
+                font: { size: 10, weight: '600' },
+                boxWidth: 8,
+                padding: 10
+              }
+            },
+            datalabels: {
+              formatter: (v, ctx) => {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                if (total === 0) return '';
+                const pct = ((v / total) * 100).toFixed(0);
+                return pct + '%';
+              },
+              color: '#fff',
+              font: { weight: '800', size: 12 },
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              borderRadius: 4,
+              padding: 4
+            }
+          }
+        }
+      });
+
+      // Weekly breakdown table (Side-by-side with doughnut)
+      const monthlyTbody = document.querySelector('#sky-monthly-table tbody');
+      monthlyTbody.innerHTML = '';
+
+      const weeksData = {};
+      sky.montos.slice(-28).forEach(d => {
+        const parts = d.fecha.split('/');
+        const dateObj = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+        const weekNum = getWeek(dateObj);
+        if (!weeksData[weekNum]) weeksData[weekNum] = 0;
+        weeksData[weekNum] += (parseFloat(d.total) || 0);
+      });
+
+      // Display top 4 weeks sorted descending
+      Object.keys(weeksData).sort((a, b) => b - a).slice(0, 4).forEach(wk => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>Sem. ${wk}</td>
+          <td style="font-weight:bold; color:var(--accent-primary)">$${weeksData[wk].toLocaleString('es-CL')}</td>
+        `;
+        monthlyTbody.appendChild(tr);
+      });
+    }
+
+    function renderMotorizados() {
+      const mot = data.motorizados;
+      if (!mot) return;
+
+      // 1. Summary
+      const summaryContainer = document.getElementById('motorizados-summary');
+      summaryContainer.innerHTML = '';
+      
+      let htmlSummary = '';
+      mot.summary.forEach(item => {
+        const pct = (item.pct * 100).toFixed(1);
+        const color = pct >= 90 ? 'var(--status-ok)' : pct >= 70 ? 'var(--status-warn)' : 'var(--status-crit)';
+        htmlSummary += `
+          <div class="fade-in" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 800; font-size: 16px; color: var(--accent-primary);">${item.area}</div>
+              <div style="font-size: 12px; color: var(--text-dim);">Operativos: ${item.operativos} / Total: ${item.total}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 24px; font-weight: 800; color: ${color};">${pct}%</div>
+            </div>
+          </div>
+        `;
+      });
+      summaryContainer.innerHTML = htmlSummary;
+
+      // 2. Alerts
+      const alertsTbody = document.querySelector('#motorizados-alerts-table tbody');
+      alertsTbody.innerHTML = '';
+
+      if (mot.alerts.length === 0) {
+        alertsTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-dim); padding: 20px;">Sin alertas para los próximos 30 días.</td></tr>';
+      } else {
+        mot.alerts.forEach(alert => {
+          const tr = document.createElement('tr');
+          tr.className = 'fade-in';
+          let diasColor = 'var(--text-main)';
+          if (alert.diasRestantes <= 7) diasColor = 'var(--status-crit)';
+          else if (alert.diasRestantes <= 15) diasColor = 'var(--status-warn)';
+
+          tr.innerHTML = `
+            <td style="font-weight: 800; color: var(--accent-primary);">${alert.movil}</td>
+            <td>${alert.documento}</td>
+            <td>${alert.fecha}</td>
+            <td style="font-weight: bold; color: ${diasColor};">${alert.diasRestantes >= 0 ? alert.diasRestantes + ' días' : 'VENCIDO (' + Math.abs(alert.diasRestantes) + ' días)'}</td>
+          `;
+          alertsTbody.appendChild(tr);
+        });
+      }
+    }
+
+    // Helper to get ISO Week number
+    function getWeek(d) {
+      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function renderTrainingChart() {
+      const ctx = document.getElementById('trainingChart').getContext('2d');
+      if (charts['trainingChart']) charts['trainingChart'].destroy();
+
+      charts['trainingChart'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.training.map(i => i.area),
+          datasets: [
+            { label: 'Vigentes', data: data.training.map(i => i.vigentes), backgroundColor: '#28a745' }, // Explicit Green
+            { label: 'No Vigentes', data: data.training.map(i => i.noVigentes), backgroundColor: '#d32f2f' } // Explicit Red
+          ]
+        },
+        options: getCommonOptions('stacked')
+      });
+    }
+
+    function renderQrChart() {
+      const ctx = document.getElementById('qrChart').getContext('2d');
+      if (charts['qrChart']) charts['qrChart'].destroy();
+
+      const sat = data.qr.satisfaction;
+      charts['qrChart'] = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['Espera', 'Limpieza', 'Velocidad', 'Conducción', 'Trato'],
+          datasets: [{
+            label: 'Satisfacción Promedio',
+            data: [sat.espera, sat.limpieza, sat.velocidad, sat.conduccion, sat.trato],
+            borderColor: '#7000ff',
+            backgroundColor: 'rgba(112, 0, 255, 0.2)',
+            pointBackgroundColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              angleLines: { color: 'rgba(0,0,0,0.1)' },
+              grid: { color: 'rgba(0,0,0,0.1)' },
+              pointLabels: { color: 'var(--accent-primary)', font: { size: 14, weight: 'bold' } },
+              ticks: { display: false, stepSize: 1 },
+              min: 0, max: 5
+            }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function renderWeeklyChart() {
+      const ctx = document.getElementById('weeklyChart').getContext('2d');
+      if (charts['weeklyChart']) charts['weeklyChart'].destroy();
+
+      const dates = [];
+      const pax = [];
+      const flights = [];
+
+      // Filter only if pax > 0
+      for (let i = 0; i < data.weekly.dates.length; i++) {
+        if (data.weekly.pax[i] > 0 || data.weekly.flights[i] > 0) {
+          dates.push(data.weekly.dates[i]);
+          pax.push(data.weekly.pax[i]);
+          flights.push(data.weekly.flights[i]);
+        }
+      }
+
+      charts['weeklyChart'] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [
+            {
+              label: 'Pasajeros',
+              data: pax,
+              borderColor: 'var(--accent-primary)',
+              backgroundColor: 'rgba(0, 51, 102, 0.1)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Vuelos',
+              data: flights,
+              borderColor: 'var(--accent-secondary)',
+              borderDash: [5, 5],
+              tension: 0.4
+            }
+          ]
+        },
+        options: getCommonOptions()
+      });
+    }
+
+    function renderPmrHourly() {
+      const hourly = data.pmrDetailed.hourly;
+      document.getElementById('pmr-hourly-datetime').innerText = `Fecha: ${hourly.date || '--'} | Total Vuelos: ${hourly.totalFlights || '--'}`;
+
+      const now = new Date();
+      const currentHours = now.getHours();
+      const currentMinutes = now.getMinutes() >= 30 ? 30 : 0;
+      const endMinutes = currentMinutes === 30 ? 59 : 29;
+      
+      const timeString = `${currentHours.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`;
+      const endString = `${currentHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+      const rangeString = `${timeString} - ${endString}`;
+
+      // Find the slot matching the string "HH:MM" or fallback to the closest one in the past if exact match doesn't exist
+      let currentSlot = hourly.slots.find(s => s.time === timeString);
+      
+      // If we don't have a direct string match, just pick the first one as fallback, or the one closest to now
+      if (!currentSlot && hourly.slots.length > 0) {
+        currentSlot = hourly.slots[0];
+      }
+
+      const container = document.getElementById('pmr-hourly-container');
+      const timeEl = document.getElementById('pmr-hourly-time');
+      const paxEl = document.getElementById('pmr-hourly-pax');
+      const alertBadge = document.getElementById('pmr-hourly-alert-badge');
+      const detailsContainer = document.getElementById('pmr-hourly-details');
+
+      if (currentSlot) {
+        timeEl.innerText = rangeString;
+        paxEl.innerText = currentSlot.pax;
+        
+        detailsContainer.innerHTML = '';
+        currentSlot.details.forEach(det => {
+          const detDiv = document.createElement('div');
+          detDiv.style.background = 'rgba(0, 51, 102, 0.1)';
+          detDiv.style.padding = '5px 15px';
+          detDiv.style.borderRadius = '15px';
+          detDiv.style.fontSize = '14px';
+          detDiv.style.fontWeight = 'bold';
+          detDiv.style.color = 'var(--accent-primary)';
+          detDiv.innerText = det;
+          detailsContainer.appendChild(detDiv);
+        });
+
+        // < 15 Estable
+        // 15 - 20 Precaucion (Amarillo)
+        // 21 - 25 Precaucion (Naranjo)
+        // > 25 Advertencia (Rojo)
+        
+        alertBadge.style.display = 'block'; // defaults to hide? no, it's mostly badges now
+        
+        if (currentSlot.pax < 15) {
+          container.style.background = 'rgba(40, 167, 69, 0.1)';
+          container.style.boxShadow = 'inset 0 0 30px rgba(40, 167, 69, 0.2)';
+          paxEl.style.color = '#28a745';
+          timeEl.style.color = '#28a745';
+          alertBadge.innerText = 'ESTABLE';
+          alertBadge.style.background = '#28a745';
+          alertBadge.style.animation = 'none';
+        } else if (currentSlot.pax >= 15 && currentSlot.pax <= 20) {
+          container.style.background = 'rgba(255, 202, 40, 0.15)';
+          container.style.boxShadow = 'inset 0 0 40px rgba(255, 202, 40, 0.3)';
+          paxEl.style.color = '#e6b800';
+          timeEl.style.color = '#e6b800';
+          alertBadge.innerText = 'PRECAUCIÓN';
+          alertBadge.style.background = '#e6b800';
+          alertBadge.style.color = '#000';
+          alertBadge.style.animation = 'none';
+        } else if (currentSlot.pax > 20 && currentSlot.pax <= 25) {
+          container.style.background = 'rgba(255, 136, 0, 0.15)';
+          container.style.boxShadow = 'inset 0 0 50px rgba(255, 136, 0, 0.3)';
+          paxEl.style.color = '#ff8800';
+          timeEl.style.color = '#ff8800';
+          alertBadge.innerText = 'PRECAUCIÓN ALTA';
+          alertBadge.style.background = '#ff8800';
+          alertBadge.style.color = '#fff';
+          alertBadge.style.animation = 'pulse 2s infinite';
+        } else {
+          // > 25
+          container.style.background = 'rgba(211, 47, 47, 0.15)';
+          container.style.boxShadow = 'inset 0 0 60px rgba(211, 47, 47, 0.3)';
+          paxEl.style.color = '#d32f2f';
+          timeEl.style.color = '#d32f2f';
+          alertBadge.innerText = 'ADVERTENCIA - ALTO VOLUMEN DE PASAJEROS';
+          alertBadge.style.background = '#d32f2f';
+          alertBadge.style.color = '#fff';
+          alertBadge.style.animation = 'pulse 1s infinite alternate';
+        }
+
+      } else {
+        timeEl.innerText = rangeString;
+        paxEl.innerText = '0';
+        container.style.background = 'transparent';
+        alertBadge.style.display = 'none';
+      }
+    }
+
+    function renderPmrCategoriesChart() {
+      const ctx = document.getElementById('pmrCategoriesChart').getContext('2d');
+      if (charts['pmrCategoriesChart']) charts['pmrCategoriesChart'].destroy();
+
+      charts['pmrCategoriesChart'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.pmrDetailed.assistance.map(a => a.category),
+          datasets: [{
+            label: 'Total Servicios',
+            data: data.pmrDetailed.assistance.map(a => a.values.reduce((acc, v) => acc + (parseFloat(v) || 0), 0)),
+            backgroundColor: 'rgba(112, 0, 255, 0.6)',
+            borderColor: '#7000ff',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: 'var(--text-dim)' } },
+            y: { grid: { display: false }, ticks: { color: 'var(--accent-primary)', font: { size: 12, weight: 'bold' } } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function getCommonOptions(mode) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: 'var(--text-dim)', font: { size: 12 } },
+            stacked: mode === 'stacked'
+          },
+          y: {
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            ticks: { color: 'var(--text-dim)' },
+            stacked: mode === 'stacked'
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: 'var(--accent-primary)', padding: 20, font: { size: 14, weight: 'bold' } }
+          }
+        }
+      };
+    }
+
+    function getMockData() {
+      return {
+        updatedAt: "10/02/2026 17:24:00",
+        training: [
+          { area: "Mantenimiento", vigentes: 45, noVigentes: 5, total: 50, cumplimiento: 0.9 },
+          { area: "Operaciones", vigentes: 120, noVigentes: 30, total: 150, cumplimiento: 0.8 },
+          { area: "Seguridad", vigentes: 38, noVigentes: 2, total: 40, cumplimiento: 0.95 },
+          { area: "Administración", vigentes: 12, noVigentes: 8, total: 20, cumplimiento: 0.6 }
+        ],
+        qr: {
+          totals: { total: 1250, month: 42, variance: "+5" },
+          satisfaction: { espera: 4.2, limpieza: 4.8, velocidad: 3.9, conduccion: 4.5, trato: 4.7 }
+        },
+        weekly: {
+          dates: ["01/02", "02/02", "03/02", "04/02", "05/02", "06/02", "07/02"],
+          flights: [12, 14, 11, 15, 18, 20, 16],
+          pax: [450, 520, 390, 610, 840, 920, 710]
+        },
+        pmrDetailed: {
+          paxPmr: [45, 52, 39, 61, 84, 92, 71],
+          operatividad: [0.95, 0.98, 0.92, 0.99, 0.94, 0.96, 0.97],
+          assistance: [
+            { category: "WCHS", values: [5, 4, 6, 8, 3, 5, 4] },
+            { category: "WCHR", values: [12, 15, 10, 18, 14, 20, 16] },
+            { category: "WCHC", values: [2, 1, 3, 2, 4, 2, 1] },
+            { category: "BLND", values: [1, 0, 1, 1, 0, 1, 0] },
+            { category: "DEAF", values: [0, 1, 0, 0, 1, 0, 1] }
+          ],
+          summary: {
+            paxEsperados: 1250,
+            serviciosRealizados: 1180,
+            operatividad: 0.944
+          },
+          hourly: {
+            date: "11/03/2026",
+            totalFlights: 154,
+            slots: [
+              { time: "11:00", pax: 15, details: ["Vuelo 101 - 5 PAX", "Vuelo 102 - 10 PAX"] },
+              { time: "11:30", pax: 8, details: ["Vuelo 204 - 8 PAX"] },
+              { time: "12:00", pax: 32, details: ["Vuelo 301 - 12 PAX", "Vuelo 305 - 20 PAX"] },
+              { time: "12:30", pax: 28, details: ["Vuelo 455 - 28 PAX"] }
+            ]
+          }
+        },
+
+        dotgenSummary: [
+          { area: "Área 1", actual: 20, optima: 18, pct: 1.11 },
+          { area: "Área 2", actual: 5, optima: 7, pct: 0.71 },
+          { area: "Área 3", actual: 15, optima: 12, pct: 1.25 },
+          { area: "Área 4", actual: 10, optima: 10, pct: 1.0 },
+          { area: "Área 5", actual: 22, optima: 20, pct: 1.1 },
+          { area: "Operaciones", actual: 72, optima: 67, pct: 1.07 }
+        ],
+        sky: {
+          vuelos: [
+            { fecha: "03/02", vuelos: 12, descubiertos: 1, rendimiento: 0.92, cobros: 11, excepciones: 0 },
+            { fecha: "04/02", vuelos: 14, descubiertos: 2, rendimiento: 0.86, cobros: 12, excepciones: 0 },
+            { fecha: "05/02", vuelos: 16, descubiertos: 1, rendimiento: 0.94, cobros: 15, excepciones: 0 },
+            { fecha: "06/02", vuelos: 13, descubiertos: 0, rendimiento: 1.0, cobros: 13, excepciones: 0 },
+            { fecha: "07/02", vuelos: 15, descubiertos: 2, rendimiento: 0.86, cobros: 13, excepciones: 0 },
+            { fecha: "08/02", vuelos: 18, descubiertos: 1, rendimiento: 0.94, cobros: 17, excepciones: 0 },
+            { fecha: "09/02", vuelos: 20, descubiertos: 0, rendimiento: 1.0, cobros: 20, excepciones: 0 },
+            { fecha: "10/02", vuelos: 16, descubiertos: 3, rendimiento: 0.81, cobros: 13, excepciones: 1 },
+            { fecha: "11/02", vuelos: 14, descubiertos: 0, rendimiento: 1.0, cobros: 14, excepciones: 0 },
+            { fecha: "12/02", vuelos: 17, descubiertos: 1, rendimiento: 0.94, cobros: 16, excepciones: 0 },
+            { fecha: "13/02", vuelos: 19, descubiertos: 0, rendimiento: 1.0, cobros: 19, excepciones: 0 },
+            { fecha: "14/02", vuelos: 21, descubiertos: 2, rendimiento: 0.90, cobros: 19, excepciones: 1 },
+            { fecha: "15/02", vuelos: 18, descubiertos: 1, rendimiento: 0.94, cobros: 17, excepciones: 0 },
+            { fecha: "16/02", vuelos: 22, descubiertos: 0, rendimiento: 1.0, cobros: 22, excepciones: 0 }
+          ],
+          montos: [
+            { fecha: "07/02", total: 150000, efectivo: 50000, credito: 80000, usd: 20000 },
+            { fecha: "11/02", total: 450000, efectivo: 150000, credito: 250000, usd: 50000 }
+          ],
+          summary: {
+            actual: 850000,
+            anterior: 800000,
+            variacion: 1.06,
+            mesActual: 3250000,
+            mesAnterior: 3100000
+          }
+        },
+        motorizados: {
+          summary: [
+            { area: "Cuerpo A", total: 10, operativos: 8, pct: 0.8 },
+            { area: "Cuerpo B", total: 5, operativos: 5, pct: 1.0 },
+            { area: "Cuerpo C", total: 15, operativos: 10, pct: 0.666 }
+          ],
+          alerts: [
+            { movil: "M-01", documento: "Revisión Técnica", fecha: "28/02/2026", diasRestantes: 18 },
+            { movil: "M-05", documento: "SOAP", fecha: "15/02/2026", diasRestantes: 5 },
+            { movil: "M-10", documento: "Permiso de Circulación", fecha: "01/03/2026", diasRestantes: 19 }
+          ]
+        }
+      };
+    }
+
+    // INICIO
+    fetchData();
+    setInterval(fetchData, REFRESH_TIME);
+
+    // RADIO LOGIC
+    // Encontramos el link directo de streaming de Concierto
+    // 'https://19043.live.streamtheworld.com/CONCIERTOAAC.aac' u otro formato si falla.
+    // Usamos el player directo de Prisa media / emisora.cl como popup si falla el audio directo, pero intentaremos stream de audio primero.
+    const radioStreamUrl = "https://27163.live.streamtheworld.com/CONCIERTOAAC.aac"; // Flujo AAC que usa emisora.cl
+    const radioAudio = new Audio(radioStreamUrl);
+    radioAudio.volume = 0.5; // Starts at half volume
+    let isRadioPlaying = false;
+
+    document.getElementById('radio-toggle').addEventListener('click', function() {
+      if (isRadioPlaying) {
+        radioAudio.pause();
+        isRadioPlaying = false;
+        document.getElementById('radio-icon').innerText = '▶';
+        this.style.background = 'transparent';
+        this.style.color = 'white';
+      } else {
+        radioAudio.play().then(() => {
+          isRadioPlaying = true;
+          document.getElementById('radio-icon').innerText = '⏸';
+          this.style.background = 'white';
+          this.style.color = 'var(--accent-primary)';
+        }).catch(err => {
+          console.error("Audio block: ", err);
+          alert("El navegador bloqueó el audio. Asegúrate de permitir el sonido entrante.");
+        });
+      }
+    });
+
+  </script>
+</body>
+
+</html>
+
