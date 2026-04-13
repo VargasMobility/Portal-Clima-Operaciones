@@ -2175,17 +2175,20 @@
 
       const now = new Date();
       const currentHours = now.getHours();
-      const currentMinutes = now.getMinutes() >= 30 ? 30 : 0;
-      const endMinutes = currentMinutes === 30 ? 59 : 29;
+      const realMinutes = now.getMinutes();
+      const slot30mins = realMinutes >= 30 ? 30 : 0;
+      const endMinutes = slot30mins === 30 ? 59 : 29;
       
-      const timeString = `${currentHours.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`;
+      const timeString = `${currentHours.toString().padStart(2, '0')}:${slot30mins.toString().padStart(2, '0')}`;
       const endString = `${currentHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
       const rangeString = `${timeString} - ${endString}`;
 
-      // Find the slot matching the string "HH:MM" or fallback to the closest one in the past if exact match doesn't exist
+      // Current 10-min index for evaluating flight status
+      const current10MinIndex = (currentHours * 6) + Math.floor(realMinutes / 10);
+
+      // Find the slot matching the string "HH:MM"
       let currentSlot = hourly.slots.find(s => s.time === timeString);
       
-      // If we don't have a direct string match, just pick the first one as fallback, or the one closest to now
       if (!currentSlot && hourly.slots.length > 0) {
         currentSlot = hourly.slots[0];
       }
@@ -2201,17 +2204,65 @@
         paxEl.innerText = currentSlot.pax;
         
         detailsContainer.innerHTML = '';
-        currentSlot.details.forEach(det => {
-          const detDiv = document.createElement('div');
-          detDiv.style.background = 'rgba(0, 51, 102, 0.1)';
-          detDiv.style.padding = '5px 15px';
-          detDiv.style.borderRadius = '15px';
-          detDiv.style.fontSize = '14px';
-          detDiv.style.fontWeight = 'bold';
-          detDiv.style.color = 'var(--accent-primary)';
-          detDiv.innerText = det;
-          detailsContainer.appendChild(detDiv);
-        });
+        if (currentSlot.details) {
+          // Primero asignamos estados y orden para poder ordenar la lista
+          currentSlot.details.forEach(det => {
+            if (current10MinIndex < det.firstIndex) {
+              det.estado = 'PENDIENTE';
+              det.order = 2; // Segundo en la lista
+              det.bg = 'rgba(102, 102, 102, 0.1)';
+              det.color = 'var(--text-dim)';
+              det.borderColor = 'rgba(102, 102, 102, 0.3)';
+            } else if (current10MinIndex > det.lastIndex) {
+              det.estado = 'FINALIZADO';
+              det.order = 3; // Tercero en la lista
+              det.bg = 'rgba(40, 167, 69, 0.15)';
+              det.color = '#28a745';
+              det.borderColor = 'rgba(40, 167, 69, 0.5)';
+            } else {
+              det.estado = 'EN SERVICIO';
+              det.order = 1; // Primero en la lista
+              det.bg = 'rgba(0, 153, 255, 0.2)';
+              det.color = '#006699';
+              det.borderColor = 'rgba(0, 153, 255, 0.5)';
+            }
+            
+            // Calculamos hora de inicio y término según los índices de 10 minutos
+            const startH = Math.floor(det.firstIndex / 6).toString().padStart(2, '0');
+            const startM = ((det.firstIndex % 6) * 10).toString().padStart(2, '0');
+            det.startTime = `${startH}:${startM}`;
+            
+            const endIdx = det.lastIndex + 1; // +1 porque dura 10 mins más
+            const endH = Math.floor(endIdx / 6).toString().padStart(2, '0');
+            const endM = ((endIdx % 6) * 10).toString().padStart(2, '0');
+            det.endTime = `${endH}:${endM}`;
+          });
+
+          // Ordenamos según la prioridad: 1) En servicio, 2) Pendiente, 3) Finalizado y luego cronológicamente
+          currentSlot.details.sort((a, b) => {
+            if (a.order !== b.order) return a.order - b.order;
+            return a.firstIndex - b.firstIndex;
+          });
+
+          // Renderizamos los elementos ordenados
+          currentSlot.details.forEach(det => {
+            const detDiv = document.createElement('div');
+            detDiv.style.background = det.bg;
+            detDiv.style.padding = '8px 18px';
+            detDiv.style.borderRadius = '20px';
+            detDiv.style.fontSize = '14px';
+            detDiv.style.fontWeight = 'bold';
+            detDiv.style.color = det.color;
+            detDiv.style.border = `1px solid ${det.borderColor}`;
+            detDiv.style.display = 'flex';
+            detDiv.style.alignItems = 'center';
+            detDiv.style.gap = '8px';
+            
+            let tipoStr = det.tipo ? ` <span style="opacity:0.7; font-size:12px;">| ${det.tipo}</span>` : '';
+            detDiv.innerHTML = `<span style="font-size:16px;font-weight:800">${det.vuelo}</span> <span style="opacity:0.8; font-size:12px;">(${det.paxInBlock} PAX)</span> &bull; <span style="opacity:0.9; font-size:12px;">Prog: ${det.hora} | Rango: ${det.startTime} - ${det.endTime}</span> &bull; <span>${det.estado}</span>${tipoStr}`;
+            detailsContainer.appendChild(detDiv);
+          });
+        }
 
         // < 15 Estable
         // 15 - 20 Precaucion (Amarillo)
@@ -2371,35 +2422,41 @@
             date: "20/03/2026",
             totalFlights: 72,
             slots: [
-              { time: "05:00", pax: 4, details: ["LA500 - 4 PAX"] },
-              { time: "05:30", pax: 7, details: ["IB731 - 7 PAX"] },
-              { time: "06:00", pax: 12, details: ["LA501 - 8 PAX", "AM204 - 4 PAX"] },
-              { time: "06:30", pax: 18, details: ["LA502 - 10 PAX", "IB733 - 8 PAX"] },
-              { time: "07:00", pax: 22, details: ["LA503 - 12 PAX", "AA101 - 10 PAX"] },
-              { time: "07:30", pax: 27, details: ["LA504 - 15 PAX", "AA102 - 12 PAX"] },
-              { time: "08:00", pax: 31, details: ["LA505 - 18 PAX", "Copa102 - 13 PAX"] },
-              { time: "08:30", pax: 19, details: ["LA506 - 19 PAX"] },
-              { time: "09:00", pax: 14, details: ["LA507 - 9 PAX", "JJ203 - 5 PAX"] },
-              { time: "09:30", pax: 9, details: ["LA508 - 9 PAX"] },
-              { time: "10:00", pax: 11, details: ["LA509 - 7 PAX", "AA103 - 4 PAX"] },
-              { time: "10:30", pax: 16, details: ["LA510 - 10 PAX", "Copa103 - 6 PAX"] },
-              { time: "11:00", pax: 24, details: ["LA511 - 14 PAX", "IB734 - 10 PAX"] },
-              { time: "11:30", pax: 28, details: ["LA512 - 16 PAX", "AA104 - 12 PAX"] },
-              { time: "12:00", pax: 33, details: ["LA513 - 20 PAX", "Copa104 - 13 PAX"] },
-              { time: "12:30", pax: 25, details: ["LA514 - 15 PAX", "JJ204 - 10 PAX"] },
-              { time: "13:00", pax: 17, details: ["LA515 - 12 PAX", "AM205 - 5 PAX"] },
-              { time: "13:30", pax: 13, details: ["LA516 - 13 PAX"] },
-              { time: "14:00", pax: 10, details: ["LA517 - 10 PAX"] },
-              { time: "14:30", pax: 21, details: ["LA518 - 13 PAX", "IB735 - 8 PAX"] },
-              { time: "15:00", pax: 26, details: ["LA519 - 14 PAX", "AA105 - 12 PAX"] },
-              { time: "15:30", pax: 20, details: ["LA520 - 12 PAX", "Copa105 - 8 PAX"] },
-              { time: "16:00", pax: 15, details: ["LA521 - 15 PAX"] },
-              { time: "16:30", pax: 29, details: ["LA522 - 17 PAX", "JJ205 - 12 PAX"] },
-              { time: "17:00", pax: 18, details: ["LA523 - 11 PAX", "AM206 - 7 PAX"] },
-              { time: "17:30", pax: 11, details: ["LA524 - 11 PAX"] },
-              { time: "18:00", pax: 8, details: ["LA525 - 8 PAX"] },
-              { time: "18:30", pax: 5, details: ["LA526 - 5 PAX"] },
-              { time: "19:00", pax: 3, details: ["LA527 - 3 PAX"] }
+              { time: "05:00", pax: 4, flightsCount: 1, details: [{ vuelo: "LA500", paxInBlock: 4, tipo: "Llegada", firstIndex: 29, lastIndex: 32 }] },
+              { time: "05:30", pax: 7, flightsCount: 1, details: [{ vuelo: "IB731", paxInBlock: 7, tipo: "Llegada", firstIndex: 32, lastIndex: 35 }] },
+              { time: "06:00", pax: 12, flightsCount: 2, details: [
+                  { vuelo: "LA501", paxInBlock: 8, tipo: "Salida", firstIndex: 35, lastIndex: 37 },
+                  { vuelo: "AM204", paxInBlock: 4, tipo: "Llegada", firstIndex: 36, lastIndex: 38 }
+              ]},
+              { time: "06:30", pax: 18, flightsCount: 2, details: [
+                  { vuelo: "LA502", paxInBlock: 10, tipo: "Llegada", firstIndex: 38, lastIndex: 40 },
+                  { vuelo: "IB733", paxInBlock: 8, tipo: "Salida", firstIndex: 39, lastIndex: 41 }
+              ]},
+              { time: "07:00", pax: 22, details: [{ vuelo: "LA503", paxInBlock: 12, tipo: "Llegada", firstIndex: 41, lastIndex: 43 }, { vuelo: "AA101", paxInBlock: 10, tipo: "Salida", firstIndex: 42, lastIndex: 44 }] },
+              { time: "07:30", pax: 27, details: [{ vuelo: "LA504", paxInBlock: 15, tipo: "Llegada", firstIndex: 44, lastIndex: 46 }, { vuelo: "AA102", paxInBlock: 12, tipo: "Salida", firstIndex: 45, lastIndex: 47 }] },
+              { time: "08:00", pax: 31, details: [{ vuelo: "LA505", paxInBlock: 18, tipo: "Llegada", firstIndex: 47, lastIndex: 49 }, { vuelo: "Copa102", paxInBlock: 13, tipo: "Salida", firstIndex: 48, lastIndex: 50 }] },
+              { time: "08:30", pax: 19, details: [{ vuelo: "LA506", paxInBlock: 19, tipo: "Llegada", firstIndex: 50, lastIndex: 52 }] },
+              { time: "09:00", pax: 14, details: [{ vuelo: "LA507", paxInBlock: 9, tipo: "Llegada", firstIndex: 53, lastIndex: 55 }, { vuelo: "JJ203", paxInBlock: 5, tipo: "Salida", firstIndex: 54, lastIndex: 56 }] },
+              { time: "09:30", pax: 9, details: [{ vuelo: "LA508", paxInBlock: 9, tipo: "Llegada", firstIndex: 56, lastIndex: 58 }] },
+              { time: "10:00", pax: 11, details: [{ vuelo: "LA509", paxInBlock: 7, tipo: "Llegada", firstIndex: 59, lastIndex: 61 }, { vuelo: "AA103", paxInBlock: 4, tipo: "Salida", firstIndex: 60, lastIndex: 62 }] },
+              { time: "10:30", pax: 16, details: [{ vuelo: "LA510", paxInBlock: 10, tipo: "Llegada", firstIndex: 62, lastIndex: 64 }, { vuelo: "Copa103", paxInBlock: 6, tipo: "Salida", firstIndex: 63, lastIndex: 65 }] },
+              { time: "11:00", pax: 24, details: [{ vuelo: "LA511", paxInBlock: 14, tipo: "Llegada", firstIndex: 65, lastIndex: 67 }, { vuelo: "IB734", paxInBlock: 10, tipo: "Salida", firstIndex: 66, lastIndex: 68 }] },
+              { time: "11:30", pax: 28, details: [{ vuelo: "LA512", paxInBlock: 16, tipo: "Llegada", firstIndex: 68, lastIndex: 70 }, { vuelo: "AA104", paxInBlock: 12, tipo: "Salida", firstIndex: 69, lastIndex: 71 }] },
+              { time: "12:00", pax: 33, details: [{ vuelo: "LA513", paxInBlock: 20, tipo: "Llegada", firstIndex: 71, lastIndex: 73 }, { vuelo: "Copa104", paxInBlock: 13, tipo: "Salida", firstIndex: 72, lastIndex: 74 }] },
+              { time: "12:30", pax: 25, details: [{ vuelo: "LA514", paxInBlock: 15, tipo: "Llegada", firstIndex: 74, lastIndex: 76 }, { vuelo: "JJ204", paxInBlock: 10, tipo: "Salida", firstIndex: 75, lastIndex: 77 }] },
+              { time: "13:00", pax: 17, details: [{ vuelo: "LA515", paxInBlock: 12, tipo: "Llegada", firstIndex: 77, lastIndex: 79 }, { vuelo: "AM205", paxInBlock: 5, tipo: "Salida", firstIndex: 78, lastIndex: 80 }] },
+              { time: "13:30", pax: 13, details: [{ vuelo: "LA516", paxInBlock: 13, tipo: "Llegada", firstIndex: 80, lastIndex: 82 }] },
+              { time: "14:00", pax: 10, details: [{ vuelo: "LA517", paxInBlock: 10, tipo: "Llegada", firstIndex: 83, lastIndex: 85 }] },
+              { time: "14:30", pax: 21, details: [{ vuelo: "LA518", paxInBlock: 13, tipo: "Llegada", firstIndex: 86, lastIndex: 88 }, { vuelo: "IB735", paxInBlock: 8, tipo: "Salida", firstIndex: 87, lastIndex: 89 }] },
+              { time: "15:00", pax: 26, details: [{ vuelo: "LA519", paxInBlock: 14, tipo: "Llegada", firstIndex: 89, lastIndex: 91 }, { vuelo: "AA105", paxInBlock: 12, tipo: "Salida", firstIndex: 90, lastIndex: 92 }] },
+              { time: "15:30", pax: 20, details: [{ vuelo: "LA520", paxInBlock: 12, tipo: "Llegada", firstIndex: 92, lastIndex: 94 }, { vuelo: "Copa105", paxInBlock: 8, tipo: "Salida", firstIndex: 93, lastIndex: 95 }] },
+              { time: "16:00", pax: 15, details: [{ vuelo: "LA521", paxInBlock: 15, tipo: "Llegada", firstIndex: 95, lastIndex: 97 }] },
+              { time: "16:30", pax: 29, details: [{ vuelo: "LA522", paxInBlock: 17, tipo: "Llegada", firstIndex: 98, lastIndex: 100 }, { vuelo: "JJ205", paxInBlock: 12, tipo: "Salida", firstIndex: 99, lastIndex: 101 }] },
+              { time: "17:00", pax: 18, details: [{ vuelo: "LA523", paxInBlock: 11, tipo: "Llegada", firstIndex: 101, lastIndex: 103 }, { vuelo: "AM206", paxInBlock: 7, tipo: "Salida", firstIndex: 102, lastIndex: 104 }] },
+              { time: "17:30", pax: 11, details: [{ vuelo: "LA524", paxInBlock: 11, tipo: "Llegada", firstIndex: 104, lastIndex: 106 }] },
+              { time: "18:00", pax: 8, details: [{ vuelo: "LA525", paxInBlock: 8, tipo: "Llegada", firstIndex: 107, lastIndex: 109 }] },
+              { time: "18:30", pax: 5, details: [{ vuelo: "LA526", paxInBlock: 5, tipo: "Llegada", firstIndex: 110, lastIndex: 112 }] },
+              { time: "19:00", pax: 3, details: [{ vuelo: "LA527", paxInBlock: 3, tipo: "Llegada", firstIndex: 113, lastIndex: 115 }] }
             ]
           }
         },
