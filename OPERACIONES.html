@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operaciones PMR</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --glass-bg: rgba(255, 255, 255, 0.95);
+      --glass-border: rgba(0, 51, 102, 0.1);
+      --accent-primary: #003366;
+      /* Navy Blue */
+      --accent-secondary: #cc0000;
+      /* Institutional Red */
+      --text-main: #003366;
+      --text-dim: #666666;
+      --status-ok: #28a745;
+      --status-warn: #ffca28;
+      --status-crit: #d32f2f;
+    }
+
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      display: grid;
+      grid-template-rows: 100px 1fr 60px;
+      width: 100%;
+      height: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      gap: 20px;
+    }
+
+    /* Top Bar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 30px;
+      background: var(--accent-primary);
+      color: white;
+      backdrop-filter: blur(10px);
+      border-radius: 0 0 20px 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      position: relative;
+    }
+
+    .header-logo {
+      height: 60px;
+      width: auto;
+      margin-right: 20px;
+      filter: brightness(0) invert(1);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .brand h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 0;
+      color: white;
+      line-height: 1.1;
+    }
+
+    .title-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .brand h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      line-height: 1.1;
+    }
+
+    .clock-container {
+      text-align: right;
+    }
+
+    #clock {
+      font-size: 32px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    #date {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Main Display */
+    main {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: repeat(12, 1fr);
+      gap: 20px;
+      opacity: 1;
+    }
+
+    /* Cards */
+    .card {
+      background: #ffffff;
+      border: 1px solid rgba(0, 51, 102, 0.1);
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 25px rgba(0, 51, 102, 0.08);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-left: 4px solid var(--accent-secondary);
+      padding-left: 10px;
+    }
+
+    .grid-full {
+      grid-area: 1 / 1 / 13 / 13;
+    }
+
+    /* Airport Traffic: Background Airplanes */
+    .bg-airplane {
+      position: fixed;
+      width: 120px;
+      height: auto;
+      fill: rgba(0, 51, 102, 0.03);
+      z-index: -1;
+      pointer-events: none;
+      animation: flyBG 60s linear infinite;
+    }
+
+    @keyframes flyBG {
+      from { left: -150px; }
+      to { left: 110%; }
+    }
+
+    /* Footer */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 30px;
+      background: var(--accent-secondary);
+      color: white;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer-logo {
+      height: 40px;
+      width: auto;
+      z-index: 2;
+    }
+
+    .airplane-container {
+      position: absolute;
+      top: 50%;
+      left: -100px;
+      transform: translateY(-50%);
+      z-index: 1;
+      animation: flyAcross 15s linear infinite;
+      pointer-events: none;
+      opacity: 0.2;
+    }
+
+    @keyframes flyAcross {
+      0% { left: -100px; transform: translateY(-50%) scaleX(1); }
+      45% { left: 100%; transform: translateY(-50%) scaleX(1); }
+      50% { left: 100%; transform: translateY(-50%) scaleX(-1); }
+      95% { left: -100px; transform: translateY(-50%) scaleX(-1); }
+      100% { left: -100px; transform: translateY(-50%) scaleX(1); }
+    }
+
+    .airplane-svg {
+      width: 50px;
+      height: auto;
+      fill: #003366;
+      transform: rotate(90deg);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--status-ok);
+      box-shadow: 0 0 10px var(--status-ok);
+    }
+
+    .dot.pulse {
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.5; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1.2); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Background Airplanes -->
+    <svg class="bg-airplane" style="top: 15%; animation-delay: 0s;" viewBox="0 0 512 512">
+      <path
+        d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z"
+        transform="rotate(90 256 256)" />
+    </svg>
+    <svg class="bg-airplane" style="top: 40%; animation-delay: -15s;" viewBox="0 0 512 512">
+      <path
+        d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z"
+        transform="rotate(90 256 256)" />
+    </svg>
+    <svg class="bg-airplane" style="top: 70%; animation-delay: -30s;" viewBox="0 0 512 512">
+      <path
+        d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z"
+        transform="rotate(90 256 256)" />
+    </svg>
+
+    <header>
+      <div class="brand">
+        <img src="https://drive.google.com/thumbnail?id=1UMWAaUV3KLd51IFPEqloKNQrfhM18GaD&sz=w1000" alt="Logo" class="header-logo">
+        <div class="title-container">
+          <h1>OPERACIONES PMR</h1>
+          <h2 id="screen-subtitle">ESTADO EN TIEMPO REAL</h2>
+        </div>
+      </div>
+      <div class="clock-container">
+        <p id="clock">00:00:00</p>
+        <p id="date">CARGANDO...</p>
+      </div>
+    </header>
+
+    <main id="display">
+      <div id="screen-pmr-hourly" class="screen">
+        <div class="card grid-full" style="height: 100%; display: flex; flex-direction: column;">
+          <div class="card-header" style="justify-content: space-between; align-items: center; border-bottom: 2px solid var(--glass-border); padding-bottom: 15px;">
+            <div>
+              <span class="card-title" style="font-size: 18px;">PASAJEROS PMR ESPERADOS AHORA</span>
+              <div style="font-size: 14px; color: var(--text-dim); margin-top: 5px;" id="pmr-hourly-datetime">Fecha: -- | Total Vuelos: --</div>
+            </div>
+            <div id="pmr-hourly-alert-badge" style="display: none; background: var(--status-crit); color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; animation: pulse 2s infinite;">
+              ALTO VOLUMEN DE PASAJEROS
+            </div>
+          </div>
+          <div id="pmr-hourly-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 30px; transition: background 0.5s ease; border-radius: 20px; padding: 20px;">
+            <div style="font-size: 24px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px;">
+              Rango Horario Actual
+            </div>
+            <div id="pmr-hourly-time" style="font-size: 64px; font-weight: 800; color: var(--accent-primary); line-height: 1;">
+              --:--
+            </div>
+            <div style="display: flex; gap: 50px; justify-content: center; align-items: baseline;">
+              <div style="text-align: center;">
+                <div id="pmr-hourly-pax" style="font-size: 80px; font-weight: 800; color: var(--status-ok); line-height: 1;">0</div>
+                <div style="font-size: 16px; font-weight: bold; color: var(--text-dim); text-transform: uppercase;">Pasajeros Esperados</div>
+              </div>
+            </div>
+            <div id="pmr-hourly-details" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 350px; overflow-y: auto; width: 90%;">
+              <!-- JS Dynamic -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="airplane-container">
+        <svg class="airplane-svg" viewBox="0 0 512 512">
+          <path
+            d="M448 336v-40L288 192V72c0-22.1-17.9-40-40-40s-40 17.9-40 40v120L48 296v40l160-48v112l-48 36v28l88-24 88 24v-28l-48-36V288l160 48z" />
+        </svg>
+      </div>
+      <div class="status-badge" style="z-index: 2;">
+        <div class="dot" style="background: white; box-shadow: 0 0 10px white;"></div>
+        <span id="status-text" style="color: white; font-weight: bold;">SISTEMA EN LÍNEA</span>
+      </div>
+
+      <div style="display: flex; gap: 15px; align-items: center; z-index: 2; margin-left: auto; margin-right: 20px;">
+        <div id="last-update" style="color: rgba(255, 255, 255, 0.8);">ÚLTIMA ACTUALIZACIÓN: --:--</div>
+      </div>
+      <img src="https://drive.google.com/thumbnail?id=1BAKSH0jS6cWIoi4DeckbslVJRlE_Vnpl&sz=w1000" alt="Logo Footer" class="footer-logo">
+    </footer>
+  </div>
+
+  <script>
+    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxZpDddlwGfD3fngvHf-0GQsWnPgGwBh6NoBeqW8sCdITJ2ir62SvRuq34eda_QZlna/exec";
+    const REFRESH_TIME = 60000;
+    let data = null;
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').innerText = now.toLocaleTimeString('es-CL');
+      const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      document.getElementById('date').innerText = now.toLocaleDateString('es-CL', options);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function fetchData() {
+      try {
+        if (WEBAPP_URL.includes("v_v_v")) {
+          // Fallback en caso de necesitar un mockup durante pruebas de desarrollo locales
+          return;
+        }
+
+        console.log("Fetching PMR operations data...");
+        const response = await fetch(WEBAPP_URL + "?action=data");
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+        }
+
+        const text = await response.text();
+        if (text.trim().startsWith("<")) {
+          throw new Error("Server returned HTML (Script Error?)");
+        }
+
+        data = JSON.parse(text);
+
+        renderPmrHourly();
+        document.getElementById('last-update').innerText = `ÚLTIMA ACTUALIZACIÓN: ${new Date().toLocaleTimeString('es-CL')}`;
+        document.querySelector('.dot').style.background = 'var(--status-ok)';
+        document.getElementById('status-text').innerText = 'SISTEMA EN LÍNEA';
+      } catch (err) {
+        console.error("Fetch/Render Error:", err);
+        document.querySelector('.dot').style.background = 'var(--status-crit)';
+        const errorMsg = err.message || err.toString();
+        document.getElementById('status-text').innerText = 'ERROR: ' + errorMsg;
+      }
+    }
+
+    function renderPmrHourly() {
+      if (!data || !data.pmrDetailed || !data.pmrDetailed.hourly) return;
+      const hourly = data.pmrDetailed.hourly;
+      document.getElementById('pmr-hourly-datetime').innerText = `Fecha: ${hourly.date || '--'} | Total Vuelos: ${hourly.totalFlights || '--'}`;
+
+      const now = new Date();
+      const currentHours = now.getHours();
+      const realMinutes = now.getMinutes();
+      const slot30mins = realMinutes >= 30 ? 30 : 0;
+      const endMinutes = slot30mins === 30 ? 59 : 29;
+      
+      const timeString = `${currentHours.toString().padStart(2, '0')}:${slot30mins.toString().padStart(2, '0')}`;
+      const endString = `${currentHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+      const rangeString = `${timeString} - ${endString}`;
+
+      const current10MinIndex = (currentHours * 6) + Math.floor(realMinutes / 10);
+      let currentSlot = hourly.slots.find(s => s.time === timeString);
+      
+      if (!currentSlot && hourly.slots.length > 0) {
+        currentSlot = hourly.slots[0];
+      }
+
+      const container = document.getElementById('pmr-hourly-container');
+      const timeEl = document.getElementById('pmr-hourly-time');
+      const paxEl = document.getElementById('pmr-hourly-pax');
+      const alertBadge = document.getElementById('pmr-hourly-alert-badge');
+      const detailsContainer = document.getElementById('pmr-hourly-details');
+
+      if (currentSlot) {
+        timeEl.innerText = rangeString;
+        paxEl.innerText = currentSlot.pax;
+        
+        detailsContainer.innerHTML = '';
+        if (currentSlot.details) {
+          currentSlot.details.forEach(det => {
+            if (current10MinIndex < det.firstIndex) {
+              det.estado = 'PENDIENTE';
+              det.order = 2; 
+              det.bg = 'rgba(102, 102, 102, 0.1)';
+              det.color = 'var(--text-dim)';
+              det.borderColor = 'rgba(102, 102, 102, 0.3)';
+            } else if (current10MinIndex > det.lastIndex) {
+              det.estado = 'FINALIZADO';
+              det.order = 3; 
+              det.bg = 'rgba(40, 167, 69, 0.15)';
+              det.color = '#28a745';
+              det.borderColor = 'rgba(40, 167, 69, 0.5)';
+            } else {
+              det.estado = 'EN SERVICIO';
+              det.order = 1; 
+              det.bg = 'rgba(0, 153, 255, 0.2)';
+              det.color = '#006699';
+              det.borderColor = 'rgba(0, 153, 255, 0.5)';
+            }
+            
+            const startH = Math.floor(det.firstIndex / 6).toString().padStart(2, '0');
+            const startM = ((det.firstIndex % 6) * 10).toString().padStart(2, '0');
+            det.startTime = `${startH}:${startM}`;
+            
+            const endIdx = det.lastIndex + 1; 
+            const endH = Math.floor(endIdx / 6).toString().padStart(2, '0');
+            const endM = ((endIdx % 6) * 10).toString().padStart(2, '0');
+            det.endTime = `${endH}:${endM}`;
+          });
+
+          currentSlot.details.sort((a, b) => {
+            if (a.order !== b.order) return a.order - b.order;
+            return a.firstIndex - b.firstIndex;
+          });
+
+          currentSlot.details.forEach(det => {
+            const detDiv = document.createElement('div');
+            detDiv.style.background = det.bg;
+            detDiv.style.padding = '8px 18px';
+            detDiv.style.borderRadius = '20px';
+            detDiv.style.fontSize = '14px';
+            detDiv.style.fontWeight = 'bold';
+            detDiv.style.color = det.color;
+            detDiv.style.border = `1px solid ${det.borderColor}`;
+            detDiv.style.display = 'flex';
+            detDiv.style.alignItems = 'center';
+            detDiv.style.gap = '8px';
+            
+            let tipoStr = det.tipo ? ` <span style="opacity:0.7; font-size:12px;">| ${det.tipo}</span>` : '';
+            detDiv.innerHTML = `<span style="font-size:16px;font-weight:800">${det.vuelo}</span> <span style="opacity:0.8; font-size:12px;">(${det.paxInBlock} PAX)</span> &bull; <span style="opacity:0.9; font-size:12px;">Prog: ${det.hora} | Rango: ${det.startTime} - ${det.endTime}</span> &bull; <span>${det.estado}</span>${tipoStr}`;
+            detailsContainer.appendChild(detDiv);
+          });
+        }
+        
+        alertBadge.style.display = 'block';
+        
+        if (currentSlot.pax < 15) {
+          container.style.background = 'rgba(40, 167, 69, 0.1)';
+          container.style.boxShadow = 'inset 0 0 30px rgba(40, 167, 69, 0.2)';
+          paxEl.style.color = '#28a745';
+          timeEl.style.color = '#28a745';
+          alertBadge.innerText = 'ESTABLE';
+          alertBadge.style.background = '#28a745';
+          alertBadge.style.animation = 'none';
+        } else if (currentSlot.pax >= 15 && currentSlot.pax <= 20) {
+          container.style.background = 'rgba(255, 202, 40, 0.15)';
+          container.style.boxShadow = 'inset 0 0 40px rgba(255, 202, 40, 0.3)';
+          paxEl.style.color = '#e6b800';
+          timeEl.style.color = '#e6b800';
+          alertBadge.innerText = 'PRECAUCIÓN';
+          alertBadge.style.background = '#e6b800';
+          alertBadge.style.color = '#000';
+          alertBadge.style.animation = 'none';
+        } else if (currentSlot.pax > 20 && currentSlot.pax <= 25) {
+          container.style.background = 'rgba(255, 136, 0, 0.15)';
+          container.style.boxShadow = 'inset 0 0 50px rgba(255, 136, 0, 0.3)';
+          paxEl.style.color = '#ff8800';
+          timeEl.style.color = '#ff8800';
+          alertBadge.innerText = 'PRECAUCIÓN ALTA';
+          alertBadge.style.background = '#ff8800';
+          alertBadge.style.color = '#fff';
+          alertBadge.style.animation = 'pulse 2s infinite';
+        } else {
+          container.style.background = 'rgba(211, 47, 47, 0.15)';
+          container.style.boxShadow = 'inset 0 0 60px rgba(211, 47, 47, 0.3)';
+          paxEl.style.color = '#d32f2f';
+          timeEl.style.color = '#d32f2f';
+          alertBadge.innerText = 'ADVERTENCIA - ALTO VOLUMEN DE PASAJEROS';
+          alertBadge.style.background = '#d32f2f';
+          alertBadge.style.color = '#fff';
+          alertBadge.style.animation = 'pulse 1s infinite alternate';
+        }
+
+      } else {
+        timeEl.innerText = rangeString;
+        paxEl.innerText = '0';
+        container.style.background = 'transparent';
+        alertBadge.style.display = 'none';
+      }
+    }
+
+    // Call fetchData initially and then every minute
+    fetchData();
+    setInterval(fetchData, REFRESH_TIME);
+
+    // Additionally, call renderPmrHourly every 10 seconds to ensure the UI perfectly syncs 
+    // when clicking over exactly the 10-minute/30-minute boundary, just using cached data.
+    setInterval(() => {
+        if (data) renderPmrHourly();
+    }, 10000);
+
+  </script>
+</body>
+
+</html>
